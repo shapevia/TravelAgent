@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 from pydantic import BaseModel
 from typing import List
@@ -7,6 +8,14 @@ import pickle
 
 # Inizializza l'app FastAPI
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://tuo-negozio.myshopify.com"],  # Sostituisci con il tuo dominio Shopify
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Carica o crea un modello semplice (simuliamo un modello pre-addestrato)
 try:
