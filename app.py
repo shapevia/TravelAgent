@@ -9,12 +9,13 @@ import pickle
 # Inizializza l'app FastAPI
 app = FastAPI()
 
+# Aggiungi CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://shapevia.com/"],  # Sostituisci con il tuo dominio Shopify
+    allow_origins=["https://shapevia.com"],  # Permetti il tuo dominio
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Permetti tutti i metodi
+    allow_headers=["*"],  # Permetti tutti gli header
 )
 
 # Carica o crea un modello semplice (simuliamo un modello pre-addestrato)
