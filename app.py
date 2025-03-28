@@ -11,7 +11,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://tuo-negozio.myshopify.com"],  # Sostituisci con il tuo dominio Shopify
+    allow_origins=["https://shapevia.com/"],  # Sostituisci con il tuo dominio Shopify
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
