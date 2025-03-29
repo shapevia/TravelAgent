@@ -88,15 +88,19 @@ extras = [
 def read_root():
     return {"message": "Shapevia Travel Agent API - Realistico"}
 
-async def generate_destination():
+async def generate_destination(interests):
     city, country = random.choice(locations)
     prefix = random.choice(prefixes)
-    dest_tags = random.sample(all_tags, random.randint(2, 4))
+    # Assicurati che almeno un interesse dell'utente sia incluso
+    dest_tags = random.sample(all_tags, random.randint(1, 3))
+    if interests:
+        dest_tags.append(random.choice(interests))
+    dest_tags = list(set(dest_tags))  # Rimuovi duplicati
     dest_activities = []
     for tag in dest_tags:
         dest_activities.extend(random.sample(base_activities[tag], min(2, len(base_activities[tag]))))
-    price = random.randint(500, 2000)
-    days = random.randint(3, 10)
+    price = random.randint(200, min(1000, int(preferences.budget)))  # Prezzi adattati al budget
+    days = random.randint(3, min(10, preferences.duration or 7))
     return {
         'destination': f"{prefix}{city}, {country}".strip(),
         'price': price,
@@ -112,7 +116,8 @@ async def recommend(preferences: UserPreferences):
     interests = [interest.lower() for interest in preferences.interests]
     duration = preferences.duration or 7
 
-    tasks = [generate_destination() for _ in range(10)]
+    # Genera più destinazioni per aumentare le possibilità
+    tasks = [generate_destination(interests) for _ in range(20)]
     destinations = await asyncio.gather(*tasks)
     filtered_data = [d for d in destinations if 
                      d['price'] <= budget and 
@@ -120,7 +125,7 @@ async def recommend(preferences: UserPreferences):
                      any(tag in interests for tag in d['tags'])]
 
     if not filtered_data:
-        return {"recommendations": [], "message": "Nessuna opzione disponibile"}
+        return {"recommendations": [], "plan": "Nessun piano disponibile con questo budget e interessi. Prova ad aumentare il budget o cambiare preferenze!"}
 
     remaining_budget = budget
     days_left = duration
