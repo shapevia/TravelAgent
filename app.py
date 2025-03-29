@@ -130,4 +130,47 @@ async def recommend(preferences: UserPreferences):
 
     random.shuffle(filtered_data)
     for dest in filtered_data:
-        if remaining_budget < dest['price']
+        if remaining_budget < dest['price'] or days_left < 1 or len(recommendations) >= 3:
+            break
+
+        dest_days = min(random.randint(2, dest['duration_days']), days_left)
+        transport = random.choice(transports)
+        recommendations.append({
+            "id": random.randint(1000, 9999),
+            "destination": dest['destination'],
+            "price": float(dest['price']),
+            "duration_days": int(dest['duration_days']),
+            "activities": dest['activities']
+        })
+
+        if len(recommendations) > 1:
+            plan += f"{random.choice(transitions)} {dest['destination']} con {transport}.\n"
+        else:
+            plan += f"Arrivo a {dest['destination']} con {transport}.\n"
+
+        for d in range(dest_days):
+            activity = random.choice(dest['activities'])
+            food = random.choice(foods.get(dest['country'], ['Cena locale']))
+            extra = random.choice(extras) if random.random() > 0.5 else ""
+            plan += f"{random.choice(day_starts).format(day=day)} {activity} a {dest['destination']}. Cena con {food}. {extra}\n"
+            day += 1
+            days_left -= 1
+
+        remaining_budget -= dest['price']
+
+    while days_left > 0:
+        last_dest = recommendations[-1]['destination'] if recommendations else "in zona"
+        last_country = recommendations[-1]['country'] if recommendations else 'locale'
+        food = random.choice(foods.get(last_country, ['Cena locale']))
+        plan += f"{random.choice(day_starts).format(day=day)} Tempo libero a {last_dest}. Prova {food}. {random.choice(extras)}\n"
+        day += 1
+        days_left -= 1
+
+    total_price = sum(r['price'] for r in recommendations)
+    plan += f"\nPrezzo totale: €{total_price} (Budget rimanente: €{remaining_budget})\n{random.choice(outros)}"
+
+    return {"recommendations": recommendations, "plan": plan}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
