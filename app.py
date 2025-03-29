@@ -1,65 +1,92 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import numpy as np
 from pydantic import BaseModel
-from typing import List
-from sklearn.decomposition import TruncatedSVD
+import numpy as np
 import pickle
+import pandas as pd
+from sklearn.metrics.pairwise import cosine_similarity
 
-# Inizializza l'app FastAPI
 app = FastAPI()
 
-# Aggiungi CORS
+# Configura CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://shapevia.com"],  # Permetti il tuo dominio
+    allow_origins=["https://shapevia.com"],
     allow_credentials=True,
-    allow_methods=["*"],  # Permetti tutti i metodi
-    allow_headers=["*"],  # Permetti tutti gli header
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Carica o crea un modello semplice (simuliamo un modello pre-addestrato)
-try:
-    with open('travel_recommender.pkl', 'rb') as f:
-        model = pickle.load(f)
-except FileNotFoundError:
-    # Simulazione di un modello se non esiste
-    model = TruncatedSVD(n_components=32)
-    # Dati fittizi per inizializzare (sostituiscili con i tuoi dati reali)
-    dummy_data = np.random.rand(1000, 5000)  # 1000 utenti, 5000 viaggi
-    model.fit(dummy_data)
-    with open('travel_recommender.pkl', 'wb') as f:
-        pickle.dump(model, f)
-
-# Definisci il modello dati per l'input utente
-class UserInput(BaseModel):
+# Modello Pydantic per l’input
+class UserPreferences(BaseModel):
     user_id: int
     budget: float
-    interests: List[str]
+    interests: list[str]
+    duration: int = None
 
-# Endpoint di benvenuto
+# Carica il dataset
+try:
+    with open('travel_data.pkl', 'rb') as f:
+        travel_data = pickle.load(f)
+except FileNotFoundError:
+    travel_data = pd.DataFrame({
+        'id': [1, 2, 3],
+        'destination': ['Spiaggia Generica', 'Montagna Generica', 'Città Generica'],
+        'price': [500, 700, 600],
+        'duration_days': [5, 7, 3],
+        'tags': [['spiaggia'], ['montagna'], ['città']]
+    })
+
+# Crea una matrice binaria per i tag
+all_tags = set(tag for tags in travel_data['tags'] for tag in tags)
+tag_matrix = pd.DataFrame(0, index=travel_data.index, columns=list(all_tags))
+for i, tags in enumerate(travel_data['tags']):
+    for tag in tags:
+        tag_matrix.loc[i, tag] = 1
+
+# Endpoint base
 @app.get("/")
 def read_root():
     return {"message": "Travel Agent API is running"}
 
-# Endpoint per le raccomandazioni
+# Endpoint per raccomandazioni
 @app.post("/recommend")
-def recommend_trips(user_input: UserInput):
-    user_id = user_input.user_id
-    trip_ids = np.arange(5000)  # Simula ID viaggi
+def recommend(preferences: UserPreferences):
+    budget = preferences.budget
+    interests = [interest.lower() for interest in preferences.interests]
+    duration = preferences.duration or 7
 
-    # Simula una matrice utente-viaggio (in un caso reale, useresti dati veri)
-    user_vector = np.zeros(5000)  # Vettore utente fittizio
-    user_vector[user_id % 5000] = 1  # Simulazione semplice
-
-    # Proiezione con SVD
-    user_embedding = model.transform(user_vector.reshape(1, -1))
-    predictions = np.dot(user_embedding, model.components_).flatten()
-    top_trips = trip_ids[np.argsort(predictions)[-5:]]  # Top 5
-
-    # Risultati
-    recommendations = [
-        {"id": int(t), "destination": f"Dest_{t}", "price": float(np.random.rand() * user_input.budget)}
-        for t in top_trips
+    # Filtra per budget e durata
+    filtered_data = travel_data[
+        (travel_data['price'] <= budget) &
+        (travel_data['duration_days'] <= duration)
     ]
-    return {"recommendations": recommendations}
+
+    if filtered_data.empty:
+        return {"recommendations": [], "message": "Nessuna opzione entro budget e durata"}
+
+    # Vettore utente per interessi
+    user_vector = pd.Series(0, index=tag_matrix.columns)
+    for interest in interests:
+        if interest in user_vector.index:
+            user_vector[interest] = 1
+
+    # Calcola similarità coseno
+    similarity = cosine_similarity([user_vector], tag_matrix.loc[filtered_data.index])[0]
+    filtered_data = filtered_data.copy()
+    filtered_data['similarity'] = similarity
+
+    # Ordina per similarità e prezzo
+    recommendations = filtered_data.sort_values(['similarity', 'price'], ascending=[False, True]).head(5)
+
+    # Formatta la risposta
+    result = [
+        {"id": int(row['id']), "destination": row['destination'], "price": float(row['price'])}
+        for _, row in recommendations.iterrows()
+    ]
+
+    return {"recommendations": result}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
