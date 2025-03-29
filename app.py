@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import random
 import asyncio
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
 app = FastAPI()
 
@@ -20,7 +22,7 @@ class UserPreferences(BaseModel):
     interests: list[str]
     duration: int = None
 
-# Dati realistici con città e paesi abbinati
+# Dati
 locations = [
     ('Positano', 'Italia'), ('Chamonix', 'Francia'), ('New York', 'USA'), ('Kyoto', 'Giappone'),
     ('Nairobi', 'Kenya'), ('Banff', 'Canada'), ('Barcellona', 'Spagna'), ('Santorini', 'Grecia'),
@@ -57,50 +59,29 @@ foods = {
 }
 all_tags = list(base_activities.keys())
 
-# Frasi per il piano
-intros = [
-    "Ecco il tuo viaggio perfetto con Shapevia!", 
-    "Un’avventura unica ti aspetta!", 
-    "Ho creato un piano epico per te!"
-]
-day_starts = [
-    "Giorno {day}:", 
-    "Il {day}° giorno:", 
-    "Day {day} è pronto:"
-]
-transitions = [
-    "Poi, via verso", 
-    "Prossima fermata:", 
-    "Dopo, direzione"
-]
-outros = [
-    "Che ne pensi? Pronto con Shapevia?", 
-    "Un viaggio da sogno, vero?", 
-    "Personalizziamo ancora?"
-]
-extras = [
-    "Goditi un tramonto speciale!", 
-    "Perfetto per un po’ di relax.", 
-    "Assaggia i sapori del posto."
-]
+# Frasi
+intros = ["Ecco il tuo viaggio perfetto con Shapevia!", "Un’avventura unica ti aspetta!", "Ho creato un piano epico per te!"]
+day_starts = ["Giorno {day}:", "Il {day}° giorno:", "Day {day} è pronto:"]
+transitions = ["Poi, via verso", "Prossima fermata:", "Dopo, direzione"]
+outros = ["Che ne pensi? Pronto con Shapevia?", "Un viaggio da sogno, vero?", "Personalizziamo ancora?"]
+extras = ["Goditi un tramonto speciale!", "Perfetto per un po’ di relax.", "Assaggia i sapori del posto."]
 
 @app.get("/")
 def read_root():
-    return {"message": "Shapevia Travel Agent API - Realistico"}
+    return {"message": "Shapevia Travel Agent API - ML Enhanced"}
 
-async def generate_destination(interests):
+async def generate_destination(interests, budget, duration):
     city, country = random.choice(locations)
     prefix = random.choice(prefixes)
-    # Assicurati che almeno un interesse dell'utente sia incluso
     dest_tags = random.sample(all_tags, random.randint(1, 3))
     if interests:
         dest_tags.append(random.choice(interests))
-    dest_tags = list(set(dest_tags))  # Rimuovi duplicati
+    dest_tags = list(set(dest_tags))
     dest_activities = []
     for tag in dest_tags:
         dest_activities.extend(random.sample(base_activities[tag], min(2, len(base_activities[tag]))))
-    price = random.randint(200, min(1000, int(preferences.budget)))  # Prezzi adattati al budget
-    days = random.randint(3, min(10, preferences.duration or 7))
+    price = random.randint(200, min(1000, int(budget)))
+    days = random.randint(3, min(10, duration or 7))
     return {
         'destination': f"{prefix}{city}, {country}".strip(),
         'price': price,
@@ -116,16 +97,35 @@ async def recommend(preferences: UserPreferences):
     interests = [interest.lower() for interest in preferences.interests]
     duration = preferences.duration or 7
 
-    # Genera più destinazioni per aumentare le possibilità
-    tasks = [generate_destination(interests) for _ in range(20)]
+    # Generazione destinazioni
+    tasks = [generate_destination(interests, budget, duration) for _ in range(20)]
     destinations = await asyncio.gather(*tasks)
-    filtered_data = [d for d in destinations if 
-                     d['price'] <= budget and 
-                     d['duration_days'] <= duration and 
-                     any(tag in interests for tag in d['tags'])]
+
+    # Vettorizzazione interessi per similarità
+    tag_vectors = {tag: np.random.rand(10) for tag in all_tags}  # Vettori fittizi per demo
+    user_vector = np.zeros(10)
+    for interest in interests:
+        if interest in tag_vectors:
+            user_vector += tag_vectors[interest]
+    user_vector = user_vector / (len(interests) or 1)
+
+    # Calcola similarità
+    dest_similarities = []
+    for dest in destinations:
+        dest_vector = np.zeros(10)
+        for tag in dest['tags']:
+            if tag in tag_vectors:
+                dest_vector += tag_vectors[tag]
+        dest_vector = dest_vector / (len(dest['tags']) or 1)
+        similarity = cosine_similarity([user_vector], [dest_vector])[0][0]
+        dest_similarities.append((dest, similarity))
+
+    # Filtra e ordina
+    filtered_data = [d for d, sim in dest_similarities if d['price'] <= budget and d['duration_days'] <= duration]
+    filtered_data.sort(key=lambda x: dest_similarities[destinations.index(x)][1], reverse=True)
 
     if not filtered_data:
-        return {"recommendations": [], "plan": "Nessun piano disponibile con questo budget e interessi. Prova ad aumentare il budget o cambiare preferenze!"}
+        return {"recommendations": [], "plan": "Nessun piano disponibile con questo budget e interessi. Prova ad aumentare il budget!"}
 
     remaining_budget = budget
     days_left = duration
@@ -133,7 +133,6 @@ async def recommend(preferences: UserPreferences):
     plan = f"{random.choice(intros)}\n\n"
     day = 1
 
-    random.shuffle(filtered_data)
     for dest in filtered_data:
         if remaining_budget < dest['price'] or days_left < 1 or len(recommendations) >= 3:
             break
@@ -164,8 +163,8 @@ async def recommend(preferences: UserPreferences):
         remaining_budget -= dest['price']
 
     while days_left > 0:
-        last_dest = recommendations[-1]['destination'] if recommendations else "in zona"
-        last_country = recommendations[-1]['country'] if recommendations else 'locale'
+        last_dest = recommendations[-1]['destination']
+        last_country = recommendations[-1]['country']
         food = random.choice(foods.get(last_country, ['Cena locale']))
         plan += f"{random.choice(day_starts).format(day=day)} Tempo libero a {last_dest}. Prova {food}. {random.choice(extras)}\n"
         day += 1
