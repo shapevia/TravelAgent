@@ -20,17 +20,14 @@ class UserPreferences(BaseModel):
     interests: list[str]
     duration: int = None
 
-# Dati per generazione realistica
-real_cities = [
-    'Positano', 'Chamonix', 'New York', 'Kyoto', 'Nairobi', 'Banff', 'Barcellona', 'Santorini', 
-    'Ubud', 'Reykjavik', 'Dubrovnik', 'Siem Reap', 'Cape Town', 'Queenstown', 'Lisbona', 
-    'Phuket', 'Cusco', 'Amsterdam', 'Tulum', 'Zermatt', 'Marrakech', 'Praga', 'Sydney', 
-    'Santander', 'Lima'
-]
-countries = [
-    'Italia', 'Francia', 'USA', 'Giappone', 'Kenya', 'Canada', 'Spagna', 'Grecia', 'Indonesia', 
-    'Islanda', 'Croazia', 'Cambogia', 'Sudafrica', 'Nuova Zelanda', 'Portogallo', 'Thailandia', 
-    'Perù', 'Olanda', 'Messico', 'Svizzera', 'Marocco', 'Repubblica Ceca', 'Australia', 'Spagna', 'Perù'
+# Dati realistici con città e paesi abbinati
+locations = [
+    ('Positano', 'Italia'), ('Chamonix', 'Francia'), ('New York', 'USA'), ('Kyoto', 'Giappone'),
+    ('Nairobi', 'Kenya'), ('Banff', 'Canada'), ('Barcellona', 'Spagna'), ('Santorini', 'Grecia'),
+    ('Ubud', 'Indonesia'), ('Reykjavik', 'Islanda'), ('Dubrovnik', 'Croazia'), ('Siem Reap', 'Cambogia'),
+    ('Cape Town', 'Sudafrica'), ('Queenstown', 'Nuova Zelanda'), ('Lisbona', 'Portogallo'),
+    ('Phuket', 'Thailandia'), ('Cusco', 'Perù'), ('Amsterdam', 'Olanda'), ('Tulum', 'Messico'),
+    ('Zermatt', 'Svizzera'), ('Marrakech', 'Marocco'), ('Praga', 'Repubblica Ceca'), ('Sydney', 'Australia')
 ]
 prefixes = ['Baia di', 'Costa di', 'Valle di', '', 'Lago di', 'Monti di']
 base_activities = {
@@ -44,7 +41,20 @@ base_activities = {
     'cibo': ['Degustazione vini', 'Street food', 'Cena gourmet', 'Corso culinario']
 }
 transports = ['Volo diretto', 'Treno panoramico', 'Auto a noleggio', 'Traghetto', 'Bus locale']
-foods = ['Pizza locale', 'Sushi fresco', 'Tapas', 'Pad thai', 'Bistecca', 'Paella', 'Tacos', 'Ramen']
+foods = {
+    'Italia': ['Pizza', 'Pasta', 'Gelato'], 'Francia': ['Croissant', 'Baguette', 'Formaggi'],
+    'USA': ['Burger', 'BBQ', 'Pancakes'], 'Giappone': ['Sushi', 'Ramen', 'Tempura'],
+    'Kenya': ['Nyama Choma', 'Ugali'], 'Canada': ['Poutine', 'Maple syrup'], 
+    'Spagna': ['Paella', 'Tapas'], 'Grecia': ['Moussaka', 'Souvlaki'],
+    'Indonesia': ['Nasi Goreng', 'Satay'], 'Islanda': ['Skyr', 'Pesce affumicato'],
+    'Croazia': ['Peka', 'Frutti di mare'], 'Cambogia': ['Fish Amok', 'Lok Lak'],
+    'Sudafrica': ['Braai', 'Biltong'], 'Nuova Zelanda': ['Pavlova', 'Lamb'],
+    'Portogallo': ['Bacalhau', 'Pastéis de Nata'], 'Thailandia': ['Pad Thai', 'Tom Yum'],
+    'Perù': ['Ceviche', 'Lomo Saltado'], 'Olanda': ['Stroopwafel', 'Herring'],
+    'Messico': ['Tacos', 'Guacamole'], 'Svizzera': ['Fonduta', 'Cioccolata'],
+    'Marocco': ['Tagine', 'Couscous'], 'Repubblica Ceca': ['Goulash', 'Trdelník'],
+    'Australia': ['Vegemite', 'Meat Pie']
+}
 all_tags = list(base_activities.keys())
 
 # Frasi per il piano
@@ -76,11 +86,10 @@ extras = [
 
 @app.get("/")
 def read_root():
-    return {"message": "Shapevia Travel Agent API - Illimitato e Realistico"}
+    return {"message": "Shapevia Travel Agent API - Realistico"}
 
 async def generate_destination():
-    city = random.choice(real_cities)
-    country = random.choice(countries)
+    city, country = random.choice(locations)
     prefix = random.choice(prefixes)
     dest_tags = random.sample(all_tags, random.randint(2, 4))
     dest_activities = []
@@ -93,7 +102,8 @@ async def generate_destination():
         'price': price,
         'duration_days': days,
         'tags': dest_tags,
-        'activities': list(set(dest_activities))
+        'activities': list(set(dest_activities)),
+        'country': country
     }
 
 @app.post("/recommend")
@@ -102,7 +112,6 @@ async def recommend(preferences: UserPreferences):
     interests = [interest.lower() for interest in preferences.interests]
     duration = preferences.duration or 7
 
-    # Genera destinazioni in parallelo per scalabilità
     tasks = [generate_destination() for _ in range(10)]
     destinations = await asyncio.gather(*tasks)
     filtered_data = [d for d in destinations if 
@@ -113,7 +122,6 @@ async def recommend(preferences: UserPreferences):
     if not filtered_data:
         return {"recommendations": [], "message": "Nessuna opzione disponibile"}
 
-    # Scegli destinazioni
     remaining_budget = budget
     days_left = duration
     recommendations = []
@@ -122,46 +130,4 @@ async def recommend(preferences: UserPreferences):
 
     random.shuffle(filtered_data)
     for dest in filtered_data:
-        if remaining_budget < dest['price'] or days_left < 1 or len(recommendations) >= 3:
-            break
-
-        dest_days = min(random.randint(2, dest['duration_days']), days_left)
-        transport = random.choice(transports)
-        recommendations.append({
-            "id": random.randint(1000, 9999),
-            "destination": dest['destination'],
-            "price": float(dest['price']),
-            "duration_days": int(dest['duration_days']),
-            "activities": dest['activities']
-        })
-
-        if recommendations:
-            plan += f"{random.choice(transitions)} {dest['destination']} con {transport}.\n"
-        else:
-            plan += f"Arrivo a {dest['destination']} con {transport}.\n"
-
-        for d in range(dest_days):
-            activity = random.choice(dest['activities'])
-            food = random.choice(foods)
-            extra = random.choice(extras) if random.random() > 0.5 else ""
-            plan += f"{random.choice(day_starts).format(day=day)} {activity} a {dest['destination']}. Cena con {food}. {extra}\n"
-            day += 1
-            days_left -= 1
-
-        remaining_budget -= dest['price']
-
-    while days_left > 0:
-        last_dest = recommendations[-1]['destination'] if recommendations else "in zona"
-        food = random.choice(foods)
-        plan += f"{random.choice(day_starts).format(day=day)} Tempo libero a {last_dest}. Prova {food}. {random.choice(extras)}\n"
-        day += 1
-        days_left -= 1
-
-    total_price = sum(r['price'] for r in recommendations)
-    plan += f"\nPrezzo totale: €{total_price} (Budget rimanente: €{remaining_budget})\n{random.choice(outros)}"
-
-    return {"recommendations": recommendations, "plan": plan}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+        if remaining_budget < dest['price']
