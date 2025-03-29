@@ -1,14 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import numpy as np
 import pickle
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
+import random
 
 app = FastAPI()
 
-# Configura CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://shapevia.com"],
@@ -17,7 +16,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Modello Pydantic per l’input
 class UserPreferences(BaseModel):
     user_id: int
     budget: float
@@ -30,62 +28,72 @@ try:
         travel_data = pickle.load(f)
 except FileNotFoundError:
     travel_data = pd.DataFrame({
-        'id': [1, 2, 3],
-        'destination': ['Spiaggia Generica', 'Montagna Generica', 'Città Generica'],
-        'price': [500, 700, 600],
-        'duration_days': [5, 7, 3],
-        'tags': [['spiaggia'], ['montagna'], ['città']]
+        'id': [1], 'destination': ['Generica'], 'price': [500], 
+        'duration_days': [5], 'tags': [['spiaggia']], 'activities': [['Relax']]
     })
 
-# Crea una matrice binaria per i tag
-all_tags = set(tag for tags in travel_data['tags'] for tag in tags)
-tag_matrix = pd.DataFrame(0, index=travel_data.index, columns=list(all_tags))
-for i, tags in enumerate(travel_data['tags']):
-    for tag in tags:
-        tag_matrix.loc[i, tag] = 1
+# Frasi spontanee per il piano
+intros = ["Ecco un viaggio perfetto per te!", "Preparati per un’avventura unica!", "Ti porto in un posto speciale!"]
+day_starts = ["Giorno {day}:", "Day {day} sarà così:", "Per il giorno {day}:"]
+outros = ["Che ne dici? Pronto a partire?", "Un piano così non si dimentica!", "Viaggio confermato? Fammi sapere!"]
 
-# Endpoint base
 @app.get("/")
 def read_root():
-    return {"message": "Travel Agent API is running"}
+    return {"message": "Shapevia Travel Agent API"}
 
-# Endpoint per raccomandazioni
 @app.post("/recommend")
 def recommend(preferences: UserPreferences):
     budget = preferences.budget
     interests = [interest.lower() for interest in preferences.interests]
     duration = preferences.duration or 7
 
-    # Filtra per budget e durata
+    # Filtra il dataset
     filtered_data = travel_data[
         (travel_data['price'] <= budget) &
         (travel_data['duration_days'] <= duration)
     ]
 
     if filtered_data.empty:
-        return {"recommendations": [], "message": "Nessuna opzione entro budget e durata"}
+        return {"recommendations": [], "message": "Nessuna opzione disponibile"}
 
-    # Vettore utente per interessi
+    # Calcola similarità
+    all_tags = set(tag for tags in travel_data['tags'] for tag in tags)
+    tag_matrix = pd.DataFrame(0, index=travel_data.index, columns=list(all_tags))
+    for i, tags in enumerate(travel_data['tags']):
+        for tag in tags:
+            tag_matrix.loc[i, tag] = 1
+
     user_vector = pd.Series(0, index=tag_matrix.columns)
     for interest in interests:
         if interest in user_vector.index:
             user_vector[interest] = 1
 
-    # Calcola similarità coseno
     similarity = cosine_similarity([user_vector], tag_matrix.loc[filtered_data.index])[0]
     filtered_data = filtered_data.copy()
     filtered_data['similarity'] = similarity
 
-    # Ordina per similarità e prezzo
-    recommendations = filtered_data.sort_values(['similarity', 'price'], ascending=[False, True]).head(5)
+    # Scegli la destinazione migliore
+    top_destination = filtered_data.sort_values(['similarity', 'price'], ascending=[False, True]).iloc[0]
+    activities = top_destination['activities']
+    days = min(duration, top_destination['duration_days'])
 
-    # Formatta la risposta
-    result = [
-        {"id": int(row['id']), "destination": row['destination'], "price": float(row['price'])}
-        for _, row in recommendations.iterrows()
-    ]
+    # Crea un piano narrativo
+    plan = f"{random.choice(intros)}\n\n"
+    for day in range(1, days + 1):
+        activity = random.choice(activities) if activities else "Esplora la zona"
+        plan += f"{random.choice(day_starts).format(day=day)} {activity} a {top_destination['destination']}.\n"
+    plan += f"\nPrezzo totale: €{top_destination['price']}\n{random.choice(outros)}"
 
-    return {"recommendations": result}
+    # Risposta strutturata
+    recommendation = {
+        "id": int(top_destination['id']),
+        "destination": top_destination['destination'],
+        "price": float(top_destination['price']),
+        "duration_days": int(top_destination['duration_days']),
+        "activities": activities
+    }
+
+    return {"recommendations": [recommendation], "plan": plan}
 
 if __name__ == "__main__":
     import uvicorn
