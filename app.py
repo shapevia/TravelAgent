@@ -32,10 +32,27 @@ except FileNotFoundError:
         'duration_days': [5], 'tags': [['spiaggia']], 'activities': [['Relax']]
     })
 
-# Frasi spontanee per il piano
-intros = ["Ecco un viaggio perfetto per te!", "Preparati per un’avventura unica!", "Ti porto in un posto speciale!"]
-day_starts = ["Giorno {day}:", "Day {day} sarà così:", "Per il giorno {day}:"]
-outros = ["Che ne dici? Pronto a partire?", "Un piano così non si dimentica!", "Viaggio confermato? Fammi sapere!"]
+# Frasi per il piano
+intros = [
+    "Ecco il tuo viaggio da sogno con Shapevia!", 
+    "Preparati per un’esperienza incredibile!", 
+    "Ti ho creato un piano perfetto!"
+]
+day_starts = [
+    "Giorno {day}:", 
+    "Per il {day}° giorno:", 
+    "Day {day} sarà speciale:"
+]
+transitions = [
+    "Poi, direzione", 
+    "Il giorno dopo, ti sposti a", 
+    "Successiva tappa:"
+]
+outros = [
+    "Che ne pensi? Pronto a prenotare con Shapevia?", 
+    "Un viaggio così ti aspetta!", 
+    "Fammi sapere se vuoi aggiustare qualcosa!"
+]
 
 @app.get("/")
 def read_root():
@@ -72,28 +89,53 @@ def recommend(preferences: UserPreferences):
     filtered_data = filtered_data.copy()
     filtered_data['similarity'] = similarity
 
-    # Scegli la destinazione migliore
-    top_destination = filtered_data.sort_values(['similarity', 'price'], ascending=[False, True]).iloc[0]
-    activities = top_destination['activities']
-    days = min(duration, top_destination['duration_days'])
+    # Scegli fino a 3 destinazioni
+    top_destinations = filtered_data.sort_values(['similarity', 'price'], ascending=[False, True]).head(3)
+    total_price = top_destinations['price'].sum()
+    if total_price > budget:
+        top_destinations = top_destinations.head(1)  # Torna a 1 se supera il budget
+        total_price = top_destinations['price'].sum()
 
-    # Crea un piano narrativo
+    # Crea il piano
     plan = f"{random.choice(intros)}\n\n"
-    for day in range(1, days + 1):
-        activity = random.choice(activities) if activities else "Esplora la zona"
-        plan += f"{random.choice(day_starts).format(day=day)} {activity} a {top_destination['destination']}.\n"
-    plan += f"\nPrezzo totale: €{top_destination['price']}\n{random.choice(outros)}"
+    days_left = duration
+    day = 1
+    recommendations = []
 
-    # Risposta strutturata
-    recommendation = {
-        "id": int(top_destination['id']),
-        "destination": top_destination['destination'],
-        "price": float(top_destination['price']),
-        "duration_days": int(top_destination['duration_days']),
-        "activities": activities
-    }
+    for i, (_, dest) in enumerate(top_destinations.iterrows()):
+        dest_days = min(dest['duration_days'], days_left)
+        activities = dest['activities']
+        recommendations.append({
+            "id": int(dest['id']),
+            "destination": dest['destination'],
+            "price": float(dest['price']),
+            "duration_days": int(dest['duration_days']),
+            "activities": activities
+        })
 
-    return {"recommendations": [recommendation], "plan": plan}
+        if i > 0:
+            plan += f"{random.choice(transitions)} {dest['destination']}.\n"
+
+        for d in range(dest_days):
+            activity = random.choice(activities) if activities else "Tempo libero"
+            plan += f"{random.choice(day_starts).format(day=day)} {activity} a {dest['destination']}.\n"
+            day += 1
+            days_left -= 1
+            if days_left <= 0:
+                break
+
+        if days_left <= 0:
+            break
+
+    # Aggiungi giorni liberi se necessario
+    while days_left > 0:
+        plan += f"{random.choice(day_starts).format(day=day)} Tempo libero per rilassarti o esplorare.\n"
+        day += 1
+        days_left -= 1
+
+    plan += f"\nPrezzo totale: €{total_price}\n{random.choice(outros)}"
+
+    return {"recommendations": recommendations, "plan": plan}
 
 if __name__ == "__main__":
     import uvicorn
