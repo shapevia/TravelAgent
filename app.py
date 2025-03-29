@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import random
 import asyncio
+import aiohttp
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
@@ -22,16 +23,7 @@ class UserPreferences(BaseModel):
     interests: list[str]
     duration: int = None
 
-# Dati
-locations = [
-    ('Positano', 'Italia'), ('Chamonix', 'Francia'), ('New York', 'USA'), ('Kyoto', 'Giappone'),
-    ('Nairobi', 'Kenya'), ('Banff', 'Canada'), ('Barcellona', 'Spagna'), ('Santorini', 'Grecia'),
-    ('Ubud', 'Indonesia'), ('Reykjavik', 'Islanda'), ('Dubrovnik', 'Croazia'), ('Siem Reap', 'Cambogia'),
-    ('Cape Town', 'Sudafrica'), ('Queenstown', 'Nuova Zelanda'), ('Lisbona', 'Portogallo'),
-    ('Phuket', 'Thailandia'), ('Cusco', 'Perù'), ('Amsterdam', 'Olanda'), ('Tulum', 'Messico'),
-    ('Zermatt', 'Svizzera'), ('Marrakech', 'Marocco'), ('Praga', 'Repubblica Ceca'), ('Sydney', 'Australia')
-]
-prefixes = ['Baia di', 'Costa di', 'Valle di', '', 'Lago di', 'Monti di']
+# Attività predefinite
 base_activities = {
     'spiaggia': ['Gita in barca', 'Snorkeling', 'Relax in spiaggia', 'Cena sul mare'],
     'montagna': ['Trekking', 'Sci', 'Escursione panoramica', 'Rifugio alpino'],
@@ -43,20 +35,6 @@ base_activities = {
     'cibo': ['Degustazione vini', 'Street food', 'Cena gourmet', 'Corso culinario']
 }
 transports = ['Volo diretto', 'Treno panoramico', 'Auto a noleggio', 'Traghetto', 'Bus locale']
-foods = {
-    'Italia': ['Pizza', 'Pasta', 'Gelato'], 'Francia': ['Croissant', 'Baguette', 'Formaggi'],
-    'USA': ['Burger', 'BBQ', 'Pancakes'], 'Giappone': ['Sushi', 'Ramen', 'Tempura'],
-    'Kenya': ['Nyama Choma', 'Ugali'], 'Canada': ['Poutine', 'Maple syrup'], 
-    'Spagna': ['Paella', 'Tapas'], 'Grecia': ['Moussaka', 'Souvlaki'],
-    'Indonesia': ['Nasi Goreng', 'Satay'], 'Islanda': ['Skyr', 'Pesce affumicato'],
-    'Croazia': ['Peka', 'Frutti di mare'], 'Cambogia': ['Fish Amok', 'Lok Lak'],
-    'Sudafrica': ['Braai', 'Biltong'], 'Nuova Zelanda': ['Pavlova', 'Lamb'],
-    'Portogallo': ['Bacalhau', 'Pastéis de Nata'], 'Thailandia': ['Pad Thai', 'Tom Yum'],
-    'Perù': ['Ceviche', 'Lomo Saltado'], 'Olanda': ['Stroopwafel', 'Herring'],
-    'Messico': ['Tacos', 'Guacamole'], 'Svizzera': ['Fonduta', 'Cioccolata'],
-    'Marocco': ['Tagine', 'Couscous'], 'Repubblica Ceca': ['Goulash', 'Trdelník'],
-    'Australia': ['Vegemite', 'Meat Pie']
-}
 all_tags = list(base_activities.keys())
 
 # Frasi
@@ -66,13 +44,29 @@ transitions = ["Poi, via verso", "Prossima fermata:", "Dopo, direzione"]
 outros = ["Che ne pensi? Pronto con Shapevia?", "Un viaggio da sogno, vero?", "Personalizziamo ancora?"]
 extras = ["Goditi un tramonto speciale!", "Perfetto per un po’ di relax.", "Assaggia i sapori del posto."]
 
+# Cache per i paesi (illimitati)
+countries_cache = []
+
+async def fetch_countries():
+    global countries_cache
+    if not countries_cache:
+        async with aiohttp.ClientSession() as session:
+            async with session.get('https://restcountries.com/v3.1/all') as response:
+                if response.status == 200:
+                    countries_cache = await response.json()
+    return countries_cache
+
 @app.get("/")
 def read_root():
-    return {"message": "Shapevia Travel Agent API - ML Enhanced"}
+    return {"message": "Shapevia Travel Agent API - Dati Esterni Illimitati"}
 
 async def generate_destination(interests, budget, duration):
-    city, country = random.choice(locations)
-    prefix = random.choice(prefixes)
+    countries = await fetch_countries()
+    if not countries:
+        return None  # Fallback se l'API fallisce
+    
+    country = random.choice(countries)
+    city = country.get('capital', [''])[0] or country['name']['common']
     dest_tags = random.sample(all_tags, random.randint(1, 3))
     if interests:
         dest_tags.append(random.choice(interests))
@@ -83,12 +77,12 @@ async def generate_destination(interests, budget, duration):
     price = random.randint(200, min(1000, int(budget)))
     days = random.randint(3, min(10, duration or 7))
     return {
-        'destination': f"{prefix}{city}, {country}".strip(),
+        'destination': f"{city}, {country['name']['common']}",
         'price': price,
         'duration_days': days,
         'tags': dest_tags,
         'activities': list(set(dest_activities)),
-        'country': country
+        'country': country['name']['common']
     }
 
 @app.post("/recommend")
@@ -97,19 +91,22 @@ async def recommend(preferences: UserPreferences):
     interests = [interest.lower() for interest in preferences.interests]
     duration = preferences.duration or 7
 
-    # Generazione destinazioni
     tasks = [generate_destination(interests, budget, duration) for _ in range(20)]
     destinations = await asyncio.gather(*tasks)
+    destinations = [d for d in destinations if d is not None]
 
-    # Vettorizzazione interessi per similarità
-    tag_vectors = {tag: np.random.rand(10) for tag in all_tags}  # Vettori fittizi per demo
+    if not destinations:
+        return {"recommendations": [], "plan": "Problema con i dati esterni. Riprova più tardi!"}
+
+    # Vettorizzazione interessi
+    tag_vectors = {tag: np.random.rand(10) for tag in all_tags}
     user_vector = np.zeros(10)
     for interest in interests:
         if interest in tag_vectors:
             user_vector += tag_vectors[interest]
     user_vector = user_vector / (len(interests) or 1)
 
-    # Calcola similarità
+    # Similarità
     dest_similarities = []
     for dest in destinations:
         dest_vector = np.zeros(10)
@@ -120,7 +117,6 @@ async def recommend(preferences: UserPreferences):
         similarity = cosine_similarity([user_vector], [dest_vector])[0][0]
         dest_similarities.append((dest, similarity))
 
-    # Filtra e ordina
     filtered_data = [d for d, sim in dest_similarities if d['price'] <= budget and d['duration_days'] <= duration]
     filtered_data.sort(key=lambda x: dest_similarities[destinations.index(x)][1], reverse=True)
 
@@ -154,9 +150,8 @@ async def recommend(preferences: UserPreferences):
 
         for d in range(dest_days):
             activity = random.choice(dest['activities'])
-            food = random.choice(foods.get(dest['country'], ['Cena locale']))
             extra = random.choice(extras) if random.random() > 0.5 else ""
-            plan += f"{random.choice(day_starts).format(day=day)} {activity} a {dest['destination']}. Cena con {food}. {extra}\n"
+            plan += f"{random.choice(day_starts).format(day=day)} {activity} a {dest['destination']}. {extra}\n"
             day += 1
             days_left -= 1
 
@@ -164,9 +159,7 @@ async def recommend(preferences: UserPreferences):
 
     while days_left > 0:
         last_dest = recommendations[-1]['destination']
-        last_country = recommendations[-1]['country']
-        food = random.choice(foods.get(last_country, ['Cena locale']))
-        plan += f"{random.choice(day_starts).format(day=day)} Tempo libero a {last_dest}. Prova {food}. {random.choice(extras)}\n"
+        plan += f"{random.choice(day_starts).format(day=day)} Tempo libero a {last_dest}. {random.choice(extras)}\n"
         day += 1
         days_left -= 1
 
