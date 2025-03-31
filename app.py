@@ -23,7 +23,8 @@ class UserPreferences(BaseModel):
     interests: list[str]
     duration: int = None
 
-# Attività predefinite
+OPENWEATHER_API_KEY = 'd03c9fb597c1b76387c444d9843a86ba'  # Sostituisci con la tua chiave OpenWeatherMap
+
 base_activities = {
     'spiaggia': ['Gita in barca', 'Snorkeling', 'Relax in spiaggia', 'Cena sul mare'],
     'montagna': ['Trekking', 'Sci', 'Escursione panoramica', 'Rifugio alpino'],
@@ -36,15 +37,27 @@ base_activities = {
 }
 transports = ['Volo diretto', 'Treno panoramico', 'Auto a noleggio', 'Traghetto', 'Bus locale']
 all_tags = list(base_activities.keys())
+foods = {
+    'Italy': ['Pizza', 'Pasta', 'Gelato'], 'France': ['Croissant', 'Baguette', 'Formaggi'],
+    'United States': ['Burger', 'BBQ', 'Pancakes'], 'Japan': ['Sushi', 'Ramen', 'Tempura'],
+    'Kenya': ['Nyama Choma', 'Ugali'], 'Canada': ['Poutine', 'Maple syrup'], 
+    'Spain': ['Paella', 'Tapas'], 'Greece': ['Moussaka', 'Souvlaki'],
+    'Indonesia': ['Nasi Goreng', 'Satay'], 'Iceland': ['Skyr', 'Pesce affumicato'],
+    'Croatia': ['Peka', 'Frutti di mare'], 'Cambodia': ['Fish Amok', 'Lok Lak'],
+    'South Africa': ['Braai', 'Biltong'], 'New Zealand': ['Pavlova', 'Lamb'],
+    'Portugal': ['Bacalhau', 'Pastéis de Nata'], 'Thailand': ['Pad Thai', 'Tom Yum'],
+    'Peru': ['Ceviche', 'Lomo Saltado'], 'Netherlands': ['Stroopwafel', 'Herring'],
+    'Mexico': ['Tacos', 'Guacamole'], 'Switzerland': ['Fonduta', 'Cioccolata'],
+    'Morocco': ['Tagine', 'Couscous'], 'Czech Republic': ['Goulash', 'Trdelník'],
+    'Australia': ['Vegemite', 'Meat Pie']
+}
 
-# Frasi
 intros = ["Ecco il tuo viaggio perfetto con Shapevia!", "Un’avventura unica ti aspetta!", "Ho creato un piano epico per te!"]
 day_starts = ["Giorno {day}:", "Il {day}° giorno:", "Day {day} è pronto:"]
 transitions = ["Poi, via verso", "Prossima fermata:", "Dopo, direzione"]
 outros = ["Che ne pensi? Pronto con Shapevia?", "Un viaggio da sogno, vero?", "Personalizziamo ancora?"]
 extras = ["Goditi un tramonto speciale!", "Perfetto per un po’ di relax.", "Assaggia i sapori del posto."]
 
-# Cache per i paesi (illimitati)
 countries_cache = []
 
 async def fetch_countries():
@@ -56,14 +69,22 @@ async def fetch_countries():
                     countries_cache = await response.json()
     return countries_cache
 
+async def fetch_weather(city):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f'http://api.openweathermap.org/data/2.5/weather?q={city}&appid={OPENWEATHER_API_KEY}&units=metric') as response:
+            if response.status == 200:
+                data = await response.json()
+                return f"{data['weather'][0]['description'].capitalize()}, {int(data['main']['temp'])}°C"
+            return "Tempo non disponibile"
+
 @app.get("/")
 def read_root():
-    return {"message": "Shapevia Travel Agent API - Dati Esterni Illimitati"}
+    return {"message": "Shapevia Travel Agent API - Dati Esterni con Meteo e Cibo"}
 
 async def generate_destination(interests, budget, duration):
     countries = await fetch_countries()
     if not countries:
-        return None  # Fallback se l'API fallisce
+        return None
     
     country = random.choice(countries)
     city = country.get('capital', [''])[0] or country['name']['common']
@@ -76,13 +97,15 @@ async def generate_destination(interests, budget, duration):
         dest_activities.extend(random.sample(base_activities[tag], min(2, len(base_activities[tag]))))
     price = random.randint(200, min(1000, int(budget)))
     days = random.randint(3, min(10, duration or 7))
+    weather = await fetch_weather(city)
     return {
         'destination': f"{city}, {country['name']['common']}",
         'price': price,
         'duration_days': days,
         'tags': dest_tags,
         'activities': list(set(dest_activities)),
-        'country': country['name']['common']
+        'country': country['name']['common'],
+        'weather': weather
     }
 
 @app.post("/recommend")
@@ -98,7 +121,6 @@ async def recommend(preferences: UserPreferences):
     if not destinations:
         return {"recommendations": [], "plan": "Problema con i dati esterni. Riprova più tardi!"}
 
-    # Vettorizzazione interessi
     tag_vectors = {tag: np.random.rand(10) for tag in all_tags}
     user_vector = np.zeros(10)
     for interest in interests:
@@ -106,7 +128,6 @@ async def recommend(preferences: UserPreferences):
             user_vector += tag_vectors[interest]
     user_vector = user_vector / (len(interests) or 1)
 
-    # Similarità
     dest_similarities = []
     for dest in destinations:
         dest_vector = np.zeros(10)
@@ -140,7 +161,8 @@ async def recommend(preferences: UserPreferences):
             "destination": dest['destination'],
             "price": float(dest['price']),
             "duration_days": int(dest['duration_days']),
-            "activities": dest['activities']
+            "activities": dest['activities'],
+            "weather": dest['weather']
         })
 
         if len(recommendations) > 1:
@@ -150,8 +172,9 @@ async def recommend(preferences: UserPreferences):
 
         for d in range(dest_days):
             activity = random.choice(dest['activities'])
+            food = random.choice(foods.get(dest['country'], ['Cena locale']))
             extra = random.choice(extras) if random.random() > 0.5 else ""
-            plan += f"{random.choice(day_starts).format(day=day)} {activity} a {dest['destination']}. {extra}\n"
+            plan += f"{random.choice(day_starts).format(day=day)} {activity} a {dest['destination']}. Cena con {food}. Meteo: {dest['weather']}. {extra}\n"
             day += 1
             days_left -= 1
 
@@ -159,7 +182,10 @@ async def recommend(preferences: UserPreferences):
 
     while days_left > 0:
         last_dest = recommendations[-1]['destination']
-        plan += f"{random.choice(day_starts).format(day=day)} Tempo libero a {last_dest}. {random.choice(extras)}\n"
+        last_country = recommendations[-1]['country']
+        food = random.choice(foods.get(last_country, ['Cena locale']))
+        weather = recommendations[-1]['weather']
+        plan += f"{random.choice(day_starts).format(day=day)} Tempo libero a {last_dest}. Prova {food}. Meteo: {weather}. {random.choice(extras)}\n"
         day += 1
         days_left -= 1
 
