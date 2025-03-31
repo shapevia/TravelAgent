@@ -26,40 +26,100 @@ class UserPreferences(BaseModel):
 OPENWEATHER_API_KEY = 'd03c9fb597c1b76387c444d9843a86ba'  # Sostituisci con la tua chiave OpenWeatherMap
 
 base_activities = {
-    'spiaggia': ['Gita in barca', 'Snorkeling', 'Relax in spiaggia', 'Cena sul mare'],
-    'montagna': ['Trekking', 'Sci', 'Escursione panoramica', 'Rifugio alpino'],
-    'città': ['Tour storico', 'Shopping', 'Museo', 'Cena in centro'],
-    'cultura': ['Visita templi', 'Mercato locale', 'Festival', 'Lezione di cucina'],
-    'natura': ['Safari', 'Canoa', 'Osservazione stelle', 'Cascate'],
-    'avventura': ['Rafting', 'Parapendio', 'Bungee jumping', 'Quad'],
-    'relax': ['Spa', 'Yoga', 'Passeggiata tranquilla', 'Lettura al tramonto'],
-    'cibo': ['Degustazione vini', 'Street food', 'Cena gourmet', 'Corso culinario']
+    'spiaggia': ['Gita in barca', 'Snorkeling', 'Nuoto con delfini', 'Pesca al tramonto'],
+    'montagna': ['Trekking', 'Arrampicata', 'Mountain bike', 'Picnic panoramico'],
+    'città': ['Tour a piedi', 'Shopping nei mercati', 'Visita a gallerie d’arte', 'Cena panoramica'],
+    'cultura': ['Visita a siti archeologici', 'Lezione di danza locale', 'Tour dei musei', 'Laboratorio artigianale'],
+    'natura': ['Escursione nella giungla', 'Birdwatching', 'Kayak nei fiumi', 'Campeggio sotto le stelle'],
+    'avventura': ['Zip-line', 'Paracadutismo', 'Safari in jeep', 'Immersioni subacquee'],
+    'relax': ['Giornata in spa', 'Meditazione al tramonto', 'Lettura in riva al mare', 'Bagno termale'],
+    'cibo': ['Degustazione di vini', 'Tour gastronomico', 'Corso di cucina locale', 'Cena con chef stellato']
 }
-transports = ['Volo diretto', 'Treno panoramico', 'Auto a noleggio', 'Traghetto', 'Bus locale']
+transports = ['Volo diretto', 'Treno ad alta velocità', 'Noleggio auto', 'Traghetto panoramico', 'Bus turistico']
 all_tags = list(base_activities.keys())
 foods = {
-    'Italy': ['Pizza', 'Pasta', 'Gelato'], 'France': ['Croissant', 'Baguette', 'Formaggi'],
-    'United States': ['Burger', 'BBQ', 'Pancakes'], 'Japan': ['Sushi', 'Ramen', 'Tempura'],
-    'Kenya': ['Nyama Choma', 'Ugali'], 'Canada': ['Poutine', 'Maple syrup'], 
-    'Spain': ['Paella', 'Tapas'], 'Greece': ['Moussaka', 'Souvlaki'],
-    'Indonesia': ['Nasi Goreng', 'Satay'], 'Iceland': ['Skyr', 'Pesce affumicato'],
-    'Croatia': ['Peka', 'Frutti di mare'], 'Cambodia': ['Fish Amok', 'Lok Lak'],
-    'South Africa': ['Braai', 'Biltong'], 'New Zealand': ['Pavlova', 'Lamb'],
-    'Portugal': ['Bacalhau', 'Pastéis de Nata'], 'Thailand': ['Pad Thai', 'Tom Yum'],
-    'Peru': ['Ceviche', 'Lomo Saltado'], 'Netherlands': ['Stroopwafel', 'Herring'],
-    'Mexico': ['Tacos', 'Guacamole'], 'Switzerland': ['Fonduta', 'Cioccolata'],
-    'Morocco': ['Tagine', 'Couscous'], 'Czech Republic': ['Goulash', 'Trdelník'],
-    'Australia': ['Vegemite', 'Meat Pie']
+    'Honduras': ['Baleadas', 'Sopa de Caracol', 'Tamales', 'Plátanos fritos'],
+    'Italy': ['Pizza Margherita', 'Spaghetti alla carbonara', 'Tiramisù'],
+    'France': ['Croque Monsieur', 'Ratatouille', 'Crêpes Suzette'],
+    'United States': ['New York Cheesecake', 'Southern BBQ Ribs', 'Apple Pie'],
+    'Japan': ['Sushi nigiri', 'Ramen tonkotsu', 'Tempura di gamberi'],
+    'Kenya': ['Nyama Choma', 'Ugali con sukuma', 'Chapati'],
+    'Canada': ['Poutine', 'Tourtière', 'Butter Tarts'],
+    'Spain': ['Paella valenciana', 'Jamón ibérico', 'Churros con cioccolato'],
+    'Greece': ['Moussaka', 'Souvlaki', 'Baklava'],
+    'Indonesia': ['Nasi Goreng', 'Satay di pollo', 'Rendang'],
+    'Iceland': ['Hákarl', 'Skyr con mirtilli', 'Pesce affumicato'],
+    'Croatia': ['Peka di polpo', 'Ćevapi', 'Strukli'],
+    'Cambodia': ['Fish Amok', 'Lok Lak', 'Num Banh Chok'],
+    'South Africa': ['Bobotie', 'Biltong', 'Malva Pudding'],
+    'New Zealand': ['Hangi', 'Pavlova', 'Agnello arrosto'],
+    'Portugal': ['Bacalhau à Brás', 'Pastéis de Nata', 'Caldo Verde'],
+    'Thailand': ['Pad Thai', 'Tom Yum Goong', 'Mango Sticky Rice'],
+    'Peru': ['Ceviche', 'Lomo Saltado', 'Pisco Sour'],
+    'Netherlands': ['Stroopwafel', 'Haring crudo', 'Erwtensoep'],
+    'Mexico': ['Tacos al pastor', 'Mole poblano', 'Chiles en nogada'],
+    'Switzerland': ['Fonduta di formaggio', 'Rösti', 'Cioccolata svizzera'],
+    'Morocco': ['Tagine di agnello', 'Couscous con verdure', 'Harira'],
+    'Czech Republic': ['Svíčková', 'Trdelník', 'Guláš'],
+    'Australia': ['Meat Pie', 'Vegemite su toast', 'Lamingtons']
+}
+country_traits = {
+    'Honduras': ['spiaggia', 'natura', 'cultura', 'cibo'],
+    'Italy': ['città', 'cultura', 'cibo', 'relax'],
+    'France': ['città', 'cultura', 'cibo', 'relax'],
+    'United States': ['città', 'avventura', 'natura', 'cibo'],
+    'Japan': ['città', 'cultura', 'cibo', 'natura'],
+    'Kenya': ['natura', 'avventura', 'cultura'],
+    'Canada': ['natura', 'montagna', 'avventura'],
+    'Spain': ['spiaggia', 'città', 'cultura', 'cibo'],
+    'Greece': ['spiaggia', 'cultura', 'relax', 'cibo'],
+    'Indonesia': ['spiaggia', 'natura', 'avventura', 'cibo'],
+    'Iceland': ['natura', 'avventura', 'relax'],
+    'Croatia': ['spiaggia', 'cultura', 'cibo'],
+    'Cambodia': ['cultura', 'natura', 'cibo'],
+    'South Africa': ['natura', 'avventura', 'cibo'],
+    'New Zealand': ['natura', 'avventura', 'montagna'],
+    'Portugal': ['spiaggia', 'cultura', 'cibo'],
+    'Thailand': ['spiaggia', 'cultura', 'cibo', 'avventura'],
+    'Peru': ['natura', 'cultura', 'avventura', 'cibo'],
+    'Netherlands': ['città', 'cultura', 'cibo'],
+    'Mexico': ['spiaggia', 'cultura', 'cibo', 'avventura'],
+    'Switzerland': ['montagna', 'relax', 'cibo'],
+    'Morocco': ['cultura', 'natura', 'cibo'],
+    'Czech Republic': ['città', 'cultura', 'cibo'],
+    'Australia': ['spiaggia', 'natura', 'avventura']
 }
 
-intros = ["Ecco il tuo viaggio perfetto con Shapevia!", "Un’avventura unica ti aspetta!", "Ho creato un piano epico per te!"]
-day_starts = ["Giorno {day}:", "Il {day}° giorno:", "Day {day} è pronto:"]
-transitions = ["Poi, via verso", "Prossima fermata:", "Dopo, direzione"]
-outros = ["Che ne pensi? Pronto con Shapevia?", "Un viaggio da sogno, vero?", "Personalizziamo ancora?"]
-extras = ["Goditi un tramonto speciale!", "Perfetto per un po’ di relax.", "Assaggia i sapori del posto."]
+intros = [
+    "Preparati per un viaggio indimenticabile con Shapevia!",
+    "Ho ideato un itinerario che ti lascerà senza parole!",
+    "Ecco la tua avventura su misura, pronta a partire!"
+]
+day_starts = [
+    "Giorno {day}: un’esperienza unica ti aspetta",
+    "Il {day}° giorno: scopri qualcosa di speciale",
+    "Day {day}: una giornata tutta da vivere"
+]
+transitions = [
+    "Poi, parti alla volta di",
+    "Il tuo viaggio continua verso",
+    "Successiva tappa:"
+]
+outros = [
+    "Ti piace? Possiamo partire quando vuoi!",
+    "Cosa ne dici? È il tuo viaggio ideale?",
+    "Pronto a fare le valigie con Shapevia?"
+]
+extras = [
+    "Non perderti i colori del tramonto!",
+    "Un momento perfetto per ricaricare le energie.",
+    "Scatta una foto da ricordare!",
+    "Lasciati sorprendere dai dettagli locali.",
+    "Un’esperienza che non dimenticherai."
+]
 
 countries_cache = []
-user_history = {}
+user_history = {}  # {user_id: {'interests': [], 'weights': {tag: peso}}}
 
 async def fetch_countries():
     global countries_cache
@@ -77,13 +137,13 @@ async def fetch_weather(city):
                 if response.status == 200:
                     data = await response.json()
                     return f"{data['weather'][0]['description'].capitalize()}, {int(data['main']['temp'])}°C"
-                return "Tempo non disponibile"
+                return "Meteo non disponibile"
         except asyncio.TimeoutError:
-            return "Tempo non disponibile (timeout)"
+            return "Meteo non disponibile (timeout)"
 
 @app.get("/")
 def read_root():
-    return {"message": "Shapevia Travel Agent API - ML Personalizzato con Meteo e Cibo"}
+    return {"message": "Shapevia Travel Agent API - ML Avanzato con Meteo e Cibo"}
 
 async def generate_destination(interests, budget, duration, user_id):
     countries = await fetch_countries()
@@ -92,27 +152,32 @@ async def generate_destination(interests, budget, duration, user_id):
     
     country = random.choice(countries)
     city = country.get('capital', [''])[0] or country['name']['common']
-    dest_tags = random.sample(all_tags, random.randint(1, 3))
+    country_name = country['name']['common']
+    valid_tags = country_traits.get(country_name, all_tags)
+    dest_tags = random.sample(valid_tags, min(random.randint(1, 3), len(valid_tags)))
     if interests:
         dest_tags.append(random.choice(interests))
-    if user_id in user_history:
-        past_interests = user_history[user_id]
-        if past_interests:
-            dest_tags.extend(random.sample(past_interests, min(1, len(past_interests))))
+    if user_id in user_history and user_history[user_id]['interests']:
+        past_interests = user_history[user_id]['interests']
+        weights = user_history[user_id]['weights']
+        weighted_tags = [tag for tag, w in weights.items() for _ in range(int(w * 10))]  # Peso influenza probabilità
+        if weighted_tags:
+            dest_tags.append(random.choice(weighted_tags))
     dest_tags = list(set(dest_tags))
     dest_activities = []
     for tag in dest_tags:
-        dest_activities.extend(random.sample(base_activities[tag], min(2, len(base_activities[tag]))))
+        if tag in base_activities:
+            dest_activities.extend(random.sample(base_activities[tag], min(2, len(base_activities[tag]))))
     price = random.randint(200, min(1000, int(budget)))
     days = random.randint(3, min(10, duration or 7))
     weather = await fetch_weather(city)
     return {
-        'destination': f"{city}, {country['name']['common']}",
+        'destination': f"{city}, {country_name}",
         'price': price,
         'duration_days': days,
         'tags': dest_tags,
         'activities': list(set(dest_activities)),
-        'country': country['name']['common'],
+        'country': country_name,
         'weather': weather
     }
 
@@ -123,10 +188,13 @@ async def recommend(preferences: UserPreferences):
     duration = preferences.duration or 7
     user_id = preferences.user_id
 
+    # Aggiorna la history dell'utente
     if user_id not in user_history:
-        user_history[user_id] = []
-    user_history[user_id].extend(interests)
-    user_history[user_id] = list(set(user_history[user_id]))[:5]
+        user_history[user_id] = {'interests': [], 'weights': {}}
+    user_history[user_id]['interests'].extend(interests)
+    user_history[user_id]['interests'] = list(set(user_history[user_id]['interests']))[:5]
+    for interest in interests:
+        user_history[user_id]['weights'][interest] = user_history[user_id]['weights'].get(interest, 0) + 0.2  # Incrementa peso
 
     tasks = [generate_destination(interests, budget, duration, user_id) for _ in range(20)]
     destinations = await asyncio.gather(*tasks)
@@ -137,10 +205,11 @@ async def recommend(preferences: UserPreferences):
 
     tag_vectors = {tag: np.random.rand(10) for tag in all_tags}
     user_vector = np.zeros(10)
-    for interest in interests + user_history.get(user_id, []):
+    for interest in interests + user_history[user_id]['interests']:
         if interest in tag_vectors:
-            user_vector += tag_vectors[interest]
-    user_vector = user_vector / (len(interests + user_history.get(user_id, [])) or 1)
+            weight = user_history[user_id]['weights'].get(interest, 1.0)
+            user_vector += tag_vectors[interest] * weight
+    user_vector = user_vector / (len(interests + user_history[user_id]['interests']) or 1)
 
     dest_similarities = []
     for dest in destinations:
@@ -163,9 +232,11 @@ async def recommend(preferences: UserPreferences):
     recommendations = []
     plan = f"{random.choice(intros)}\n\n"
     day = 1
+    used_extras = set()
+    used_foods = set()
 
-    for dest in filtered_data:
-        if remaining_budget < dest['price'] or days_left < 1 or len(recommendations) >= 3:
+    for dest in filtered_data[:3]:  # Limita a 3 destinazioni
+        if remaining_budget < dest['price'] or days_left < 1:
             break
 
         dest_days = min(random.randint(2, dest['duration_days']), days_left)
@@ -177,7 +248,7 @@ async def recommend(preferences: UserPreferences):
             "duration_days": int(dest['duration_days']),
             "activities": dest['activities'],
             "weather": dest['weather'],
-            "country": dest['country']  # Assicurati che country sia sempre presente
+            "country": dest['country']
         })
 
         if len(recommendations) > 1:
@@ -187,33 +258,21 @@ async def recommend(preferences: UserPreferences):
 
         for d in range(dest_days):
             activity = random.choice(dest['activities'])
-            food = random.choice(foods.get(dest['country'], ['Cena locale']))
-            extra = random.choice(extras) if random.random() > 0.5 else ""
-            plan += f"{random.choice(day_starts).format(day=day)} {activity} a {dest['destination']}. Cena con {food}. Meteo: {dest['weather']}. {extra}\n"
+            available_foods = [f for f in foods.get(dest['country'], ['Piatto tipico']) if f not in used_foods]
+            food = random.choice(available_foods) if available_foods else "Piatto tipico"
+            used_foods.add(food)
+            available_extras = [e for e in extras if e not in used_extras]
+            extra = random.choice(available_extras) if available_extras else ""
+            if extra:
+                used_extras.add(extra)
+            plan += f"{random.choice(day_starts).format(day=day)}: {activity} a {dest['destination']}. Cena con {food}. Meteo: {dest['weather']}. {extra}\n"
             day += 1
             days_left -= 1
 
         remaining_budget -= dest['price']
 
-    # Gestisci il caso in cui non ci siano raccomandazioni
-    if days_left > 0:
-        if recommendations:
-            last_dest = recommendations[-1]['destination']
-            last_country = recommendations[-1]['country']
-            last_weather = recommendations[-1]['weather']
-            while days_left > 0:
-                food = random.choice(foods.get(last_country, ['Cena locale']))
-                plan += f"{random.choice(day_starts).format(day=day)} Tempo libero a {last_dest}. Prova {food}. Meteo: {last_weather}. {random.choice(extras)}\n"
-                day += 1
-                days_left -= 1
-        else:
-            plan += "Non ci sono abbastanza destinazioni per coprire tutti i giorni con il budget attuale.\n"
-
-    total_price = sum(r['price'] for r in recommendations)
-    plan += f"\nPrezzo totale: €{total_price} (Budget rimanente: €{remaining_budget})\n{random.choice(outros)}"
-
-    return {"recommendations": recommendations, "plan": plan}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    if days_left > 0 and recommendations:
+        last_dest = recommendations[-1]['destination']
+        last_country = recommendations[-1]['country']
+        last_weather = recommendations[-1]['weather']
+        while days_left > 0:
