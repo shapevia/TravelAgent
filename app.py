@@ -59,6 +59,7 @@ outros = ["Che ne pensi? Pronto con Shapevia?", "Un viaggio da sogno, vero?", "P
 extras = ["Goditi un tramonto speciale!", "Perfetto per un po’ di relax.", "Assaggia i sapori del posto."]
 
 countries_cache = []
+user_history = {}  # Memoria delle preferenze per user_id
 
 async def fetch_countries():
     global countries_cache
@@ -79,9 +80,9 @@ async def fetch_weather(city):
 
 @app.get("/")
 def read_root():
-    return {"message": "Shapevia Travel Agent API - Dati Esterni con Meteo e Cibo"}
+    return {"message": "Shapevia Travel Agent API - ML Personalizzato con Meteo e Cibo"}
 
-async def generate_destination(interests, budget, duration):
+async def generate_destination(interests, budget, duration, user_id):
     countries = await fetch_countries()
     if not countries:
         return None
@@ -91,6 +92,11 @@ async def generate_destination(interests, budget, duration):
     dest_tags = random.sample(all_tags, random.randint(1, 3))
     if interests:
         dest_tags.append(random.choice(interests))
+    # Personalizzazione basata su history
+    if user_id in user_history:
+        past_interests = user_history[user_id]
+        if past_interests:
+            dest_tags.extend(random.sample(past_interests, min(1, len(past_interests))))
     dest_tags = list(set(dest_tags))
     dest_activities = []
     for tag in dest_tags:
@@ -113,8 +119,15 @@ async def recommend(preferences: UserPreferences):
     budget = preferences.budget
     interests = [interest.lower() for interest in preferences.interests]
     duration = preferences.duration or 7
+    user_id = preferences.user_id
 
-    tasks = [generate_destination(interests, budget, duration) for _ in range(20)]
+    # Aggiorna la history dell'utente
+    if user_id not in user_history:
+        user_history[user_id] = []
+    user_history[user_id].extend(interests)
+    user_history[user_id] = list(set(user_history[user_id]))[:5]  # Limita a 5 interessi
+
+    tasks = [generate_destination(interests, budget, duration, user_id) for _ in range(20)]
     destinations = await asyncio.gather(*tasks)
     destinations = [d for d in destinations if d is not None]
 
@@ -123,10 +136,10 @@ async def recommend(preferences: UserPreferences):
 
     tag_vectors = {tag: np.random.rand(10) for tag in all_tags}
     user_vector = np.zeros(10)
-    for interest in interests:
+    for interest in interests + user_history.get(user_id, []):
         if interest in tag_vectors:
             user_vector += tag_vectors[interest]
-    user_vector = user_vector / (len(interests) or 1)
+    user_vector = user_vector / (len(interests + user_history.get(user_id, [])) or 1)
 
     dest_similarities = []
     for dest in destinations:
