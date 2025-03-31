@@ -59,7 +59,7 @@ outros = ["Che ne pensi? Pronto con Shapevia?", "Un viaggio da sogno, vero?", "P
 extras = ["Goditi un tramonto speciale!", "Perfetto per un po’ di relax.", "Assaggia i sapori del posto."]
 
 countries_cache = []
-user_history = {}  # Memoria delle preferenze per user_id
+user_history = {}
 
 async def fetch_countries():
     global countries_cache
@@ -72,11 +72,14 @@ async def fetch_countries():
 
 async def fetch_weather(city):
     async with aiohttp.ClientSession() as session:
-        async with session.get(f'http://api.openweathermap.org/data/2.5/weather?q={city}&appid={OPENWEATHER_API_KEY}&units=metric') as response:
-            if response.status == 200:
-                data = await response.json()
-                return f"{data['weather'][0]['description'].capitalize()}, {int(data['main']['temp'])}°C"
-            return "Tempo non disponibile"
+        try:
+            async with session.get(f'http://api.openweathermap.org/data/2.5/weather?q={city}&appid={OPENWEATHER_API_KEY}&units=metric', timeout=aiohttp.ClientTimeout(total=10)) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return f"{data['weather'][0]['description'].capitalize()}, {int(data['main']['temp'])}°C"
+                return "Tempo non disponibile"
+        except asyncio.TimeoutError:
+            return "Tempo non disponibile (timeout)"
 
 @app.get("/")
 def read_root():
@@ -92,7 +95,6 @@ async def generate_destination(interests, budget, duration, user_id):
     dest_tags = random.sample(all_tags, random.randint(1, 3))
     if interests:
         dest_tags.append(random.choice(interests))
-    # Personalizzazione basata su history
     if user_id in user_history:
         past_interests = user_history[user_id]
         if past_interests:
@@ -121,11 +123,10 @@ async def recommend(preferences: UserPreferences):
     duration = preferences.duration or 7
     user_id = preferences.user_id
 
-    # Aggiorna la history dell'utente
     if user_id not in user_history:
         user_history[user_id] = []
     user_history[user_id].extend(interests)
-    user_history[user_id] = list(set(user_history[user_id]))[:5]  # Limita a 5 interessi
+    user_history[user_id] = list(set(user_history[user_id]))[:5]
 
     tasks = [generate_destination(interests, budget, duration, user_id) for _ in range(20)]
     destinations = await asyncio.gather(*tasks)
@@ -175,7 +176,8 @@ async def recommend(preferences: UserPreferences):
             "price": float(dest['price']),
             "duration_days": int(dest['duration_days']),
             "activities": dest['activities'],
-            "weather": dest['weather']
+            "weather": dest['weather'],
+            "country": dest['country']  # Assicurati che country sia sempre presente
         })
 
         if len(recommendations) > 1:
@@ -193,14 +195,19 @@ async def recommend(preferences: UserPreferences):
 
         remaining_budget -= dest['price']
 
-    while days_left > 0:
-        last_dest = recommendations[-1]['destination']
-        last_country = recommendations[-1]['country']
-        food = random.choice(foods.get(last_country, ['Cena locale']))
-        weather = recommendations[-1]['weather']
-        plan += f"{random.choice(day_starts).format(day=day)} Tempo libero a {last_dest}. Prova {food}. Meteo: {weather}. {random.choice(extras)}\n"
-        day += 1
-        days_left -= 1
+    # Gestisci il caso in cui non ci siano raccomandazioni
+    if days_left > 0:
+        if recommendations:
+            last_dest = recommendations[-1]['destination']
+            last_country = recommendations[-1]['country']
+            last_weather = recommendations[-1]['weather']
+            while days_left > 0:
+                food = random.choice(foods.get(last_country, ['Cena locale']))
+                plan += f"{random.choice(day_starts).format(day=day)} Tempo libero a {last_dest}. Prova {food}. Meteo: {last_weather}. {random.choice(extras)}\n"
+                day += 1
+                days_left -= 1
+        else:
+            plan += "Non ci sono abbastanza destinazioni per coprire tutti i giorni con il budget attuale.\n"
 
     total_price = sum(r['price'] for r in recommendations)
     plan += f"\nPrezzo totale: €{total_price} (Budget rimanente: €{remaining_budget})\n{random.choice(outros)}"
