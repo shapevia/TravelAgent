@@ -276,3 +276,24 @@ async def recommend(preferences: UserPreferences):
         last_country = recommendations[-1]['country']
         last_weather = recommendations[-1]['weather']
         while days_left > 0:
+            available_foods = [f for f in foods.get(last_country, ['Piatto tipico']) if f not in used_foods]
+            food = random.choice(available_foods) if available_foods else "Piatto tipico"
+            used_foods.add(food)
+            available_extras = [e for e in extras if e not in used_extras]
+            extra = random.choice(available_extras) if available_extras else ""
+            if extra:
+                used_extras.add(extra)
+            plan += f"{random.choice(day_starts).format(day=day)}: Esplora {last_dest} a tuo piacimento. Gusta {food}. Meteo: {last_weather}. {extra}\n"
+            day += 1
+            days_left -= 1
+    elif not recommendations:
+        plan += "Non ho trovato destinazioni adatte al tuo budget e durata.\n"
+
+    total_price = sum(r['price'] for r in recommendations)
+    plan += f"\nPrezzo totale: €{total_price} (Budget rimanente: €{remaining_budget})\n{random.choice(outros)}"
+
+    return {"recommendations": recommendations, "plan": plan}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
